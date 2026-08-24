@@ -338,7 +338,7 @@ def save_page(page: dict, attempts: int = 6) -> None:
             return
         except mysql.connector.Error as exc:
             last_error = exc
-            if getattr(exc, "errno", None) != 1213 or attempt == attempts - 1:
+            if getattr(exc, "errno", None) not in (1213, 3) or attempt == attempts - 1:
                 raise
             time.sleep(delay)
             delay = min(delay * 2, 4.0)
