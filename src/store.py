@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import time
 from datetime import datetime, timezone
+
+import mysql.connector
 
 from .db import db_cursor
 from .normalize import search_blob
@@ -326,7 +329,24 @@ def _save_verse(cursor, verse: dict) -> None:
     )
 
 
-def save_page(page: dict) -> None:
+def save_page(page: dict, attempts: int = 6) -> None:
+    delay = 0.25
+    last_error: Exception | None = None
+    for attempt in range(attempts):
+        try:
+            _save_page_once(page)
+            return
+        except mysql.connector.Error as exc:
+            last_error = exc
+            if getattr(exc, "errno", None) != 1213 or attempt == attempts - 1:
+                raise
+            time.sleep(delay)
+            delay = min(delay * 2, 4.0)
+    if last_error:
+        raise last_error
+
+
+def _save_page_once(page: dict) -> None:
     with db_cursor(commit=True) as cursor:
         _upsert_source(cursor, page["source"])
         cursor.execute(
